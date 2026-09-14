@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,7 +27,39 @@ jobs:
           echo "/opt/gradle-8.7/bin" >> "$GITHUB_PATH"
 
       - name: Build debug APK
-        run: gradle assembleDebug --no-daemon --stacktrace
+        id: build
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+
+      - name: Collect errors
+        if: always()
+        run: |
+          mkdir -p ci
+          { echo "=== run ${GITHUB_RUN_ID} ==="
+            grep -n -A 25 "What went wrong" build.log | head -60
+            echo "--- kotlin / javac errors ---"
+            grep -nE "^e: |error:|error \[|Unresolved reference|Type mismatch|None of the following" build.log | head -60
+            echo "--- tail ---"
+            tail -40 build.log
+          } > ci/build-errors.txt 2>&1 || echo "no log" > ci/build-errors.txt
+
+      - name: Push log
+        if: always()
+        env:
+          T: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name ci-bot
+          git config user.email ci-bot@users.noreply.github.com
+          git checkout -B ci-logs
+          git add -A ci
+          git commit -m "ci logs ${GITHUB_RUN_ID}" || echo "nothing"
+          git push -f "https://x-access-token:${T}@github.com/${GITHUB_REPOSITORY}.git" ci-logs
+
+      - name: Fail if build failed
+        if: steps.build.outcome == 'failure'
+        run: exit 1
 
       - name: Compile checks
         run: gradle compileDebugKotlin lintDebug --no-daemon || true
