@@ -16,8 +16,8 @@
    - **Authorization callback URL 必须填 `airepo://oauth2redirect`**
    - 生成后把 Client ID 填进工程（下面两种方式任选）
 3. **填 Client ID**（二选一，推荐环境变量，别提交到仓库）：
-   - 环境变量：`export GITHUB_CLIENT_ID=Iv1.xxxx` `export GITHUB_CLIENT_SECRET=xxxx`
-   - 或改 `app/build.gradle.kts` 里 `buildConfigField("String", "GITHUB_CLIENT_ID", ...)` 的默认值
+   - 环境变量：`export GITHUB_CLIENT_ID=Ov23liXvs0KjEDXD9S7z`（Secret 可不填）
+   - Client ID 已内置在 `app/build.gradle.kts` 的 `GITHUB_CLIENT_ID` 默认值里，开箱即用
    - GitHub App / OAuth App 支持 PKCE，所以**可以不填 Secret**（Secret 在客户端是不安全的）；代码里只在 Secret 非空时才带上。
 4. 权限：一次性申请了 `repo / delete_repo / workflow / admin:org / project / gist / write:packages` 等全部常用 scope（见 `Constants.SCOPES`），你已知晓风险。
 

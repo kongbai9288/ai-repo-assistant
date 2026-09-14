@@ -17,7 +17,7 @@ android {
         versionName = "1.0.0"
 
         // 只读给应用用的 OAuth 占位配置：请在 local.properties 中覆盖为你自己的值
-        buildConfigField("String", "GITHUB_CLIENT_ID", "\"${System.getenv("GITHUB_CLIENT_ID") ?: "Iv1.0000000000000000"}\"")
+        buildConfigField("String", "GITHUB_CLIENT_ID", "\"${System.getenv("GITHUB_CLIENT_ID") ?: "Ov23liXvs0KjEDXD9S7z"}\"")
         buildConfigField("String", "GITHUB_CLIENT_SECRET", "\"${System.getenv("GITHUB_CLIENT_SECRET") ?: "REPLACE_ME"}\"")
         buildConfigField("String", "OAUTH_REDIRECT_URI", "\"airepo://oauth2redirect\"")
     }
