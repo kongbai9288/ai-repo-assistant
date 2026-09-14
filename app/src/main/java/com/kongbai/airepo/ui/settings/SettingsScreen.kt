@@ -132,23 +132,14 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel(), onLoggedOut: () -> U
 
             SectionTitle("联网搜索")
             var expanded by remember { mutableStateOf(false) }
-            androidx.compose.material3.ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = it }
-            ) {
-                OutlinedTextField(
-                    value = s.searchProvider.label,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("搜索源") },
-                    trailingIcon = {
-                        androidx.compose.material3.ExposedDropdownMenuDefaults.TrailingIcon(expanded)
-                    },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth()
-                )
-                androidx.compose.material3.ExposedDropdownMenu(
+            Box {
+                OutlinedButton(
+                    onClick = { expanded = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("${s.searchProvider.label}  ${s.searchProvider.note}", maxLines = 1)
+                }
+                androidx.compose.material3.DropdownMenu(
                     expanded = expanded,
                     onDismissRequest = { expanded = false }
                 ) {

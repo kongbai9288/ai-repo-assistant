@@ -9,7 +9,6 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -69,7 +68,7 @@ fun WebLoginScreen(
         Column(Modifier.padding(pad).fillMaxSize()) {
             if (loading) {
                 LinearProgressIndicator(
-                    progress = { animateFloatAsState(progress / 100f, label = "p").value },
+                    progress = { progress / 100f },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

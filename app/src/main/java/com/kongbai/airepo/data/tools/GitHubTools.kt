@@ -123,7 +123,7 @@ class GitHubTools @Inject constructor(
         owner: String, repo: String, path: String, content: String,
         message: String, branch: String?, sha: String?, contentIsBase64: Boolean = false
     ): String {
-        val b64 = if (contentIsBase64) content.replace("\s".toRegex(), "")
+        val b64 = if (contentIsBase64) content.replace("\\s".toRegex(), "")
         else Base64.encodeToString(content.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
         val body = linkedMapOf<String, Any?>(
             "message" to message,
