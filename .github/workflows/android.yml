@@ -38,12 +38,15 @@ jobs:
         if: always()
         run: |
           mkdir -p ci
+          cp build.log ci/build.log 2>/dev/null || echo "no log" > ci/build.log
           { echo "=== run ${GITHUB_RUN_ID} ==="
-            echo "--- error lines ---"
-            grep -E "^e: |^w: .*(error)|FAILURE:|What went wrong|Execution failed|Caused by|Could not|Unresolved reference|error:" build.log | head -120
-            echo "--- tail 150 ---"
-            tail -150 build.log
-          } > ci/build-errors.txt 2>&1 || echo "no log" > ci/build-errors.txt
+            grep -n -A 30 "What went wrong" build.log | head -80
+            echo "--- kotlin errors ---"
+            grep -E "^e: " build.log | head -60
+            echo "--- head 60 ---"
+            head -60 build.log
+          } > ci/build-errors.txt 2>&1 || true
+          wc -l ci/build.log
 
       - uses: actions/upload-artifact@v4
         if: always()
