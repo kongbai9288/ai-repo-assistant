@@ -1,7 +1,0 @@
--keepattributes Signature
--keepattributes *Annotation*
--dontwarn okhttp3.**
--dontwarn okio.**
--keep class com.squareup.moshi.** { *; }
--keepclassmembers class * { @com.squareup.moshi.FromJson <methods>; @com.squareup.moshi.ToJson <methods>; }
--keep class com.kongbai.airepo.data.remote.** { *; }
