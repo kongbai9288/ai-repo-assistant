@@ -153,9 +153,10 @@ class GitHubTools @Inject constructor(
             if (t.tree.size > limit) "\n…(截断，共 ${t.tree.size} 条)" else ""
     }
 
-    suspend fun listBranches(owner: String, repo: String): String =
+    suspend fun listBranches(owner: String, repo: String): String {
         val (o, n) = split(owner, repo)
-        api.listBranches(o, n).joinToString("\n") { "- ${it.name}${if (it.protected) " (protected)" else ""}" }
+        return api.listBranches(o, n).joinToString("\n") { "- ${it.name}${if (it.protected) " (protected)" else ""}" }
+    }
 
     suspend fun createBranch(owner: String, repo: String, branch: String, from: String?): String {
         val (o, n) = split(owner, repo)
@@ -167,16 +168,18 @@ class GitHubTools @Inject constructor(
         return "已创建分支 $branch（from $base）"
     }
 
-    suspend fun listCommits(owner: String, repo: String, branch: String?, path: String?, perPage: Int): String =
+    suspend fun listCommits(owner: String, repo: String, branch: String?, path: String?, perPage: Int): String {
         val (o, n) = split(owner, repo)
-        api.listCommits(o, n, branch, path, perPage).joinToString("\n") {
+        return api.listCommits(o, n, branch, path, perPage).joinToString("\n") {
             "- ${it.sha.take(7)} ${it.commit?.message?.lines()?.firstOrNull() ?: ""} (${it.commit?.author?.name})"
         }.ifBlank { "无提交记录" }
+    }
 
-    suspend fun listIssues(owner: String, repo: String, state: String): String =
+    suspend fun listIssues(owner: String, repo: String, state: String): String {
         val (o, n) = split(owner, repo)
-        api.listIssues(o, n, state).joinToString("\n") { "#${it.number} [${it.state}] ${it.title} ${it.htmlUrl}" }
+        return api.listIssues(o, n, state).joinToString("\n") { "#${it.number} [${it.state}] ${it.title} ${it.htmlUrl}" }
             .ifBlank { "无 Issue" }
+    }
 
     suspend fun createIssue(owner: String, repo: String, title: String, body: String?, labels: List<String>?): String {
         val map = linkedMapOf<String, Any?>("title" to title, "body" to body)
@@ -192,11 +195,12 @@ class GitHubTools @Inject constructor(
         return "已在 #$number 留言"
     }
 
-    suspend fun listPulls(owner: String, repo: String, state: String): String =
+    suspend fun listPulls(owner: String, repo: String, state: String): String {
         val (o, n) = split(owner, repo)
-        api.listPulls(o, n, state).joinToString("\n") {
+        return api.listPulls(o, n, state).joinToString("\n") {
             "#${it.number} [${it.state}] ${it.title} ${it.head?.ref} → ${it.base?.ref} ${it.htmlUrl}"
         }.ifBlank { "无 PR" }
+    }
 
     suspend fun createPull(owner: String, repo: String, title: String, head: String, base: String, body: String?): String {
         val (o, n) = split(owner, repo)
