@@ -63,13 +63,11 @@ class ChatViewModel @Inject constructor(
     fun setDefaultRepo(fullName: String?) { defaultRepo = fullName }
     fun setNetMode(m: NetMode) { _netMode.value = m }
 
+    /** 任意格式都能附加：文本直接读内容，其他格式给 base64 供 gh_write_file 提交 */
     fun attach(uri: Uri) {
         val f = upload.describe(uri)
-        if (f.size > 8 * 1024 * 1024) {
-            _toast.value = "文件超过 8MB，GitHub Contents API 有体积限制"
-            return
-        }
         _attachments.value = _attachments.value + f
+        _toast.value = "已附加 ${f.name}${if (f.isBinary) "（二进制，将按 base64 处理）" else ""}"
     }
 
     fun removeAttachment(f: PickedFile) {
@@ -137,9 +135,10 @@ class ChatViewModel @Inject constructor(
             val attachText = buildString {
                 picked.forEach { f ->
                     val (content, isB64) = upload.read(f.uri)
-                    append("\n\n<附件 file=\"${f.name}\" size=${f.size} ${if (isB64) "encoding=base64" else "encoding=utf-8"}>\n")
+                    append("\n\n<附件 file=\"${f.name}\" mime=\"${f.mime ?: "unknown"}\" size=${f.size} ${if (isB64) "encoding=base64" else "encoding=utf-8"}>\n")
                     append(content)
                     append("\n</附件>")
+                    if (isB64) append("\n（这是二进制文件的 base64，若要写入仓库请调用 gh_write_file 并把 content_base64 设为 true，content 原样填这段 base64）")
                 }
             }
 

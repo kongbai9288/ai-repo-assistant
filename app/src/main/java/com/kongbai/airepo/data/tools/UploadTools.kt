@@ -18,11 +18,25 @@ data class PickedFile(
     val isBinary: Boolean
 )
 
+/** 常见的纯文本扩展名，这些直接按 UTF-8 文本交给 AI；其余一律 base64 */
 private val TEXT_EXT = setOf(
-    "md", "txt", "kt", "java", "kts", "gradle", "json", "xml", "yml", "yaml", "toml",
-    "properties", "pro", "sh", "py", "js", "ts", "html", "css", "scss", "c", "h", "cpp",
-    "go", "rs", "rb", "php", "swift", "sql", "ini", "cfg", "conf", "gitignore", "csv"
+    "md", "markdown", "txt", "text", "log", "kt", "kts", "java", "gradle", "json", "xml",
+    "yml", "yaml", "toml", "properties", "pro", "sh", "bash", "bat", "ps1", "py", "js", "ts",
+    "tsx", "jsx", "html", "htm", "css", "scss", "less", "c", "h", "cc", "cpp", "hpp",
+    "go", "rs", "rb", "php", "swift", "sql", "ini", "cfg", "conf", "env", "gitignore",
+    "gitattributes", "editorconfig", "csv", "tsv", "dockerfile", "mk", "make", "cmake", "r", "m", "mm"
 )
+
+private val COMPRESSED_EXT = setOf("zip", "apk", "aar", "jar", "7z", "gz", "tgz", "rar", "png", "jpg", "jpeg", "webp", "gif", "mp4", "mp3", "pdf")
+
+fun isText(name: String, mime: String?): Boolean {
+    val n = name.lowercase()
+    if (n in setOf("dockerfile", "makefile", "license", "readme", "changelog")) return true
+    val ext = n.substringAfterLast('.', "")
+    if (ext in COMPRESSED_EXT) return false
+    if (ext in TEXT_EXT) return true
+    return mime?.startsWith("text/") == true
+}
 
 @Singleton
 class UploadTools @Inject constructor(@ApplicationContext private val ctx: Context) {
@@ -30,14 +44,13 @@ class UploadTools @Inject constructor(@ApplicationContext private val ctx: Conte
     fun describe(uri: Uri): PickedFile {
         val name = queryName(uri)
         val size = querySize(uri)
-        val ext = name.substringAfterLast('.', "").lowercase()
         val mime = ctx.contentResolver.getType(uri)
-        val isBinary = ext !in TEXT_EXT && !(mime?.startsWith("text/") == true)
+        val isBinary = !isText(name, mime)
         return PickedFile(name, size, mime, uri, isBinary)
     }
 
     /** 文本直接读，二进制给 base64（供 gh_write_file 用 base64 模式提交） */
-    suspend fun read(uri: Uri, maxChars: Int = 100_000): Pair<String, Boolean> =
+    suspend fun read(uri: Uri, maxChars: Int = 400_000): Pair<String, Boolean> =
         withContext(Dispatchers.IO) {
             val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                 ?: return@withContext "读取失败：无法打开文件" to false
@@ -47,6 +60,9 @@ class UploadTools @Inject constructor(@ApplicationContext private val ctx: Conte
                 return@withContext if (text.length > maxChars)
                     text.take(maxChars) + "\n…(已截断到 ${maxChars} 字符)" to false
                 else text to false
+            }
+            if (bytes.size > 10 * 1024 * 1024) {
+                return@withContext "文件过大（${bytes.size / 1024 / 1024}MB base64 会超出模型上下文，建议压缩或分批上传）" to true
             }
             val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
             return@withContext b64 to true

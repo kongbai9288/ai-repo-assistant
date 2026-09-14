@@ -27,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -36,13 +35,15 @@ import com.kongbai.airepo.auth.AuthRepository
 @Composable
 fun LoginScreen(
     vm: LoginViewModel = hiltViewModel(),
-    auth: AuthRepository
+    auth: AuthRepository,
+    externalError: String? = null,
+    onWebLogin: () -> Unit = {},
+    onBrowserLogin: () -> Unit = {}
 ) {
     val busy by vm.busy.collectAsState()
     val error by vm.error.collectAsState()
     var token by remember { mutableStateOf("") }
     var showToken by remember { mutableStateOf(false) }
-    val context = LocalContext.current
 
     Surface {
         Column(
@@ -61,18 +62,21 @@ fun LoginScreen(
             )
             Spacer(Modifier.height(24.dp))
             Button(
-                onClick = {
-                    runCatching { context.startActivity(auth.buildAuthIntent()) }
-                        .onFailure { vm.loginWithToken("").also { vm.setFallback("没拉起浏览器：${it.message}") } }
-                },
+                onClick = onWebLogin,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !busy
-            ) { Text("使用 GitHub 登录（OAuth 2.0 + PKCE）") }
+            ) { Text("GitHub 登录（应用内授权）") }
             Text(
-                "点击后会用系统浏览器打开 GitHub 授权页，授权完成自动跳回本应用；回调地址 airepo://oauth2redirect",
+                "在应用内打开 GitHub 授权页，授权后自动回到本应用 —— 不依赖外部浏览器跳转",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(
+                onClick = onBrowserLogin,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !busy
+            ) { Text("用系统浏览器授权（备用）") }
             Spacer(Modifier.height(12.dp))
             OutlinedButton(onClick = { showToken = !showToken }, modifier = Modifier.fillMaxWidth()) {
                 Text(if (showToken) "收起 Token 登录" else "用 Personal Access Token 登录")
@@ -99,11 +103,11 @@ fun LoginScreen(
                 Spacer(Modifier.height(16.dp))
                 CircularProgressIndicator()
             }
-            error?.let {
+            (error ?: externalError)?.let { msg ->
                 Spacer(Modifier.height(12.dp))
-                Text("登录失败：$it", color = MaterialTheme.colorScheme.error)
+                Text("登录失败：$msg", color = MaterialTheme.colorScheme.error)
                 Text(
-                    "若浏览器没反应：确认装了 Chrome/Edge 等浏览器，或直接在上面用 Personal Access Token 登录。",
+                    "若应用内授权页打不开：检查网络能否访问 github.com，或改用系统浏览器 / Token 登录。",
                     style = MaterialTheme.typography.labelSmall
                 )
             }

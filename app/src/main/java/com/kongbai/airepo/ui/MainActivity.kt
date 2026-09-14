@@ -1,6 +1,7 @@
 package com.kongbai.airepo.ui
 
 import android.os.Bundle
+import androidx.lifecycle.lifecycleScope
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -17,6 +18,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -29,6 +35,7 @@ import com.kongbai.airepo.auth.AuthRepository
 import com.kongbai.airepo.ui.chat.ChatScreen
 import com.kongbai.airepo.ui.chat.ChatViewModel
 import com.kongbai.airepo.ui.login.LoginScreen
+import com.kongbai.airepo.ui.login.WebLoginScreen
 import com.kongbai.airepo.ui.repos.ReposScreen
 import com.kongbai.airepo.ui.settings.SettingsScreen
 import com.kongbai.airepo.ui.theme.AiRepoTheme
@@ -46,10 +53,38 @@ class MainActivity : ComponentActivity() {
         setContent {
             AiRepoTheme {
                 val state by auth.state.collectAsState()
-                if (state.token.isNullOrBlank()) {
-                    LoginScreen(auth = auth)
-                } else {
-                    MainScaffold(onLoggedOut = { auth.logout() })
+                // 默认走应用内 WebView 登录，不再依赖外部浏览器回跳
+                var showWebLogin by remember { mutableStateOf(false) }
+                var authUrl by remember { mutableStateOf("") }
+                var loginError by remember { mutableStateOf<String?>(null) }
+
+                LaunchedEffect(state.error) { state.error?.let { loginError = it } }
+
+                when {
+                    showWebLogin -> WebLoginScreen(
+                        authUrl = authUrl,
+                        onCode = { code, st, err ->
+                            lifecycleScope.launch {
+                                val r = auth.handleRedirect(code, st, err)
+                                if (r.isFailure) {
+                                    loginError = auth.state.value.error ?: "授权失败"
+                                }
+                                showWebLogin = false
+                            }
+                        },
+                        onBack = { showWebLogin = false }
+                    )
+                    state.token.isNullOrBlank() -> LoginScreen(
+                        auth = auth,
+                        externalError = loginError,
+                        onWebLogin = {
+                            loginError = null
+                            authUrl = auth.buildAuthUrl()
+                            showWebLogin = true
+                        },
+                        onBrowserLogin = { auth.launchBrowser(this@MainActivity) }
+                    )
+                    else -> MainScaffold(onLoggedOut = { auth.logout() })
                 }
             }
         }

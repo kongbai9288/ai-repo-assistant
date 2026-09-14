@@ -85,8 +85,8 @@ fun ChatScreen(
     onOpenSettings: () -> Unit
 ) {
     val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
-    ) { uri -> uri?.let { vm.attach(it) } }
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetMultipleContents()
+    ) { uris -> uris.forEach { vm.attach(it) } }
     val messages by vm.messages.collectAsState()
     val conversations by vm.conversations.collectAsState()
     val streaming by vm.streaming.collectAsState()
@@ -158,7 +158,7 @@ fun ChatScreen(
                     ) {
                         NetModeChip(current = netMode) { vm.setNetMode(it) }
                         Spacer(Modifier.weight(1f))
-                        IconButton(onClick = { launcher.launch("*/*") }) {
+                        IconButton(onClick = { launcher.launch("*/*")  // 任意格式 }) {
                             Icon(Icons.Default.AttachFile, contentDescription = "附加本地文件")
                         }
                     }

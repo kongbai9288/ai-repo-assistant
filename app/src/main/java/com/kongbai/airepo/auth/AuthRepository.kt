@@ -1,5 +1,6 @@
 package com.kongbai.airepo.auth
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import com.kongbai.airepo.BuildConfig
@@ -83,6 +84,11 @@ class AuthRepository @Inject constructor(
     }
 
     private fun clientId(): String = BuildConfig.GITHUB_CLIENT_ID
+
+    /** 备用：系统浏览器授权。部分 ROM 会拦截自定义 scheme，因此主流程已改用应用内 WebView。 */
+    fun launchBrowser(context: android.content.Context) {
+        runCatching { context.startActivity(buildAuthIntent()) }
+    }
 
     /** 浏览器回跳 airepo://oauth2redirect?code=xxx&state=xxx 后调用 */
     suspend fun handleRedirect(code: String?, state: String?, error: String?): Result<Unit> {
