@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
                 if (state.token.isNullOrBlank()) {
                     LoginScreen(auth = auth)
                 } else {
-                    MainScaffold()
+                    MainScaffold(onLoggedOut = { auth.logout() })
                 }
             }
         }
@@ -63,7 +63,7 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
 }
 
 @Composable
-private fun MainScaffold() {
+private fun MainScaffold(onLoggedOut: () -> Unit = {}) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val current = backStack?.destination?.route
@@ -101,7 +101,7 @@ private fun MainScaffold() {
                     nav.navigate(Tab.CHAT.route) { launchSingleTop = true }
                 })
             }
-            composable(Tab.SETTINGS.route) { SettingsScreen() }
+            composable(Tab.SETTINGS.route) { SettingsScreen(onLoggedOut = onLoggedOut) }
         }
     }
 }

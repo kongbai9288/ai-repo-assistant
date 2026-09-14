@@ -22,6 +22,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
@@ -30,7 +35,11 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,6 +49,7 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -61,6 +71,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.kongbai.airepo.data.local.ConversationEntity
 import com.kongbai.airepo.data.local.MessageEntity
+import com.kongbai.airepo.data.prefs.NetMode
+import com.kongbai.airepo.data.tools.PickedFile
 import com.kongbai.airepo.data.tools.ToolRequest
 import com.kongbai.airepo.util.MdBlock
 import com.kongbai.airepo.util.parseMarkdown
@@ -72,6 +84,9 @@ fun ChatScreen(
     vm: ChatViewModel = hiltViewModel(),
     onOpenSettings: () -> Unit
 ) {
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri -> uri?.let { vm.attach(it) } }
     val messages by vm.messages.collectAsState()
     val conversations by vm.conversations.collectAsState()
     val streaming by vm.streaming.collectAsState()
@@ -81,6 +96,8 @@ fun ChatScreen(
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     var input by remember { mutableStateOf("") }
+    val netMode by vm.netMode.collectAsState()
+    val attachments by vm.attachments.collectAsState()
 
     LaunchedEffect(messages.size, messages.lastOrNull()?.content?.length) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
@@ -131,27 +148,54 @@ fun ChatScreen(
                 )
             },
             bottomBar = {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    OutlinedTextField(
-                        value = input,
-                        onValueChange = { input = it },
+                Column(Modifier.fillMaxWidth()) {
+                    // 选择性联网 + 附件区
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .heightIn(max = 160.dp),
-                        placeholder = { Text("让 AI 改仓库，例如：给 README 补充安装说明并提交") },
-                        maxLines = 6
-                    )
-                    Spacer(Modifier.size(8.dp))
-                    if (streaming) {
-                        IconButton(onClick = { vm.stop() }) { Icon(Icons.Default.Stop, null) }
-                    } else {
-                        IconButton(onClick = { vm.send(input); input = "" }) {
-                            Icon(Icons.AutoMirrored.Filled.Send, null)
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        NetModeChip(current = netMode) { vm.setNetMode(it) }
+                        Spacer(Modifier.weight(1f))
+                        IconButton(onClick = { launcher.launch("*/*") }) {
+                            Icon(Icons.Default.AttachFile, contentDescription = "附加本地文件")
+                        }
+                    }
+                    if (attachments.isNotEmpty()) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            attachments.forEach { f ->
+                                AttachmentChip(f) { vm.removeAttachment(f) }
+                            }
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        OutlinedTextField(
+                            value = input,
+                            onValueChange = { input = it },
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(max = 160.dp),
+                            placeholder = { Text("让 AI 改仓库，例如：给 README 补充安装说明并提交") },
+                            maxLines = 6
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        if (streaming) {
+                            IconButton(onClick = { vm.stop() }) { Icon(Icons.Default.Stop, null) }
+                        } else {
+                            IconButton(onClick = { vm.send(input); input = "" }) {
+                                Icon(Icons.AutoMirrored.Filled.Send, null)
+                            }
                         }
                     }
                 }
@@ -342,5 +386,47 @@ private fun ConfirmDialog(req: ToolRequest, onAllow: () -> Unit, onDeny: () -> U
         },
         confirmButton = { TextButton(onClick = onAllow) { Text("执行") } },
         dismissButton = { TextButton(onClick = onDeny) { Text("拒绝") } }
+    )
+}
+
+
+@Composable
+private fun NetModeChip(current: NetMode, onPick: (NetMode) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        NetMode.values().forEach { m ->
+            val selected = current == m
+            FilterChip(
+                selected = selected,
+                onClick = { onPick(m) },
+                label = { Text(m.label, style = MaterialTheme.typography.labelMedium) },
+                leadingIcon = {
+                    Icon(
+                        when (m) {
+                            NetMode.ON -> Icons.Default.Public
+                            NetMode.OFF -> Icons.Default.CloudOff
+                            NetMode.AUTO -> Icons.Default.TravelExplore
+                        },
+                        null,
+                        modifier = Modifier.size(AssistChipDefaults.IconSize)
+                    )
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun AttachmentChip(f: PickedFile, onRemove: () -> Unit) {
+    InputChip(
+        selected = false,
+        onClick = onRemove,
+        label = {
+            Text(
+                "${f.name} · ${if (f.size > 0) "${f.size / 1024}KB" else "?"}${if (f.isBinary) " · 二进制" else ""}",
+                maxLines = 1,
+                style = MaterialTheme.typography.labelSmall
+            )
+        },
+        trailingIcon = { Icon(Icons.Default.Close, null, modifier = Modifier.size(14.dp)) }
     )
 }

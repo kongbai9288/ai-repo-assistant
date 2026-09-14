@@ -51,7 +51,8 @@ object ToolCatalog {
     val GH_GET_REPO = ToolSpec(
         "gh_get_repo",
         "查看单个仓库的元信息：默认分支、是否私有、描述、星标等。",
-        mapOf("owner" to s("仓库所有者"), "repo" to s("仓库名")),
+        mapOf("owner" to s("仓库所有者用户名，如 kongbai9288；不要带斜杠"),
+            "repo" to s("仓库名，如 ai-repo-assistant；只传名字，不要传 owner/name 这种完整名")),
         listOf("owner", "repo")
     )
 
@@ -78,7 +79,7 @@ object ToolCatalog {
         "gh_list_dir",
         "列出仓库中某个目录的内容（文件/子目录及大小）。",
         mapOf(
-            "owner" to s("所有者"), "repo" to s("仓库名"),
+            "owner" to s("所有者用户名"), "repo" to s("仓库名，只传名字不要带 owner/"),
             "path" to s("目录路径，根目录用空字符串"), "ref" to s("分支或 commit，可选")
         ),
         listOf("owner", "repo")
@@ -88,7 +89,7 @@ object ToolCatalog {
         "gh_read_file",
         "读取仓库中某个文件的完整内容（自动 base64 解码）。改文件前务必先读。",
         mapOf(
-            "owner" to s("所有者"), "repo" to s("仓库名"), "path" to s("文件路径"),
+            "owner" to s("所有者用户名"), "repo" to s("仓库名，只传名字不要带 owner/"), "path" to s("文件路径"),
             "ref" to s("分支或 commit，可选")
         ),
         listOf("owner", "repo", "path")
@@ -98,9 +99,10 @@ object ToolCatalog {
         "gh_write_file",
         "新建或更新文件并直接产生一次提交。更新已有文件时要带上 sha（用 gh_read_file 获取）。",
         mapOf(
-            "owner" to s("所有者"), "repo" to s("仓库名"), "path" to s("文件路径"),
+            "owner" to s("所有者用户名"), "repo" to s("仓库名，只传名字不要带 owner/"), "path" to s("文件路径"),
             "content" to s("文件完整内容（纯文本）"), "message" to s("提交信息，建议 Conventional Commits"),
-            "branch" to s("目标分支，不填则默认分支"), "sha" to s("更新已有文件时必填的 blob sha")
+            "branch" to s("目标分支，不填则默认分支"), "sha" to s("更新已有文件时必填的 blob sha"),
+            "content_base64" to b("content 是否已经是 base64（上传二进制文件时用 true），默认 false")
         ),
         listOf("owner", "repo", "path", "content", "message")
     )
@@ -109,7 +111,7 @@ object ToolCatalog {
         "gh_delete_file",
         "删除仓库中的文件并产生提交（需用户确认）。",
         mapOf(
-            "owner" to s("所有者"), "repo" to s("仓库名"), "path" to s("文件路径"),
+            "owner" to s("所有者用户名"), "repo" to s("仓库名，只传名字不要带 owner/"), "path" to s("文件路径"),
             "message" to s("提交信息"), "sha" to s("文件 sha"), "branch" to s("分支，可选")
         ),
         listOf("owner", "repo", "path", "message", "sha")
@@ -119,7 +121,7 @@ object ToolCatalog {
         "gh_get_tree",
         "一次性拿到仓库某分支的完整文件树（可递归），比逐层列目录更快。",
         mapOf(
-            "owner" to s("所有者"), "repo" to s("仓库名"), "ref" to s("分支或 commit"),
+            "owner" to s("所有者用户名"), "repo" to s("仓库名，只传名字不要带 owner/"), "ref" to s("分支或 commit"),
             "recursive" to b("是否递归，默认 true")
         ),
         listOf("owner", "repo")
@@ -136,7 +138,7 @@ object ToolCatalog {
         "gh_create_branch",
         "基于某个分支创建新分支（写改动前先开分支是好习惯）。",
         mapOf(
-            "owner" to s("所有者"), "repo" to s("仓库名"), "branch" to s("新分支名"),
+            "owner" to s("所有者用户名"), "repo" to s("仓库名，只传名字不要带 owner/"), "branch" to s("新分支名"),
             "from" to s("源分支，不填则用默认分支")
         ),
         listOf("owner", "repo", "branch")
@@ -146,7 +148,7 @@ object ToolCatalog {
         "gh_list_commits",
         "查看提交历史，可按分支或文件路径过滤。",
         mapOf(
-            "owner" to s("所有者"), "repo" to s("仓库名"), "branch" to s("分支，可选"),
+            "owner" to s("所有者用户名"), "repo" to s("仓库名，只传名字不要带 owner/"), "branch" to s("分支，可选"),
             "path" to s("文件路径，可选"), "per_page" to i("条数，默认 20", 20)
         ),
         listOf("owner", "repo")
@@ -156,7 +158,7 @@ object ToolCatalog {
         "gh_list_issues",
         "列出仓库的 Issue。",
         mapOf(
-            "owner" to s("所有者"), "repo" to s("仓库名"),
+            "owner" to s("所有者用户名"), "repo" to s("仓库名，只传名字不要带 owner/"),
             "state" to s("open / closed / all，默认 open")
         ),
         listOf("owner", "repo")
@@ -166,7 +168,7 @@ object ToolCatalog {
         "gh_create_issue",
         "创建 Issue。",
         mapOf(
-            "owner" to s("所有者"), "repo" to s("仓库名"), "title" to s("标题"),
+            "owner" to s("所有者用户名"), "repo" to s("仓库名，只传名字不要带 owner/"), "title" to s("标题"),
             "body" to s("正文，支持 Markdown"), "labels" to mapOf("type" to "array", "items" to mapOf("type" to "string"), "description" to "标签")
         ),
         listOf("owner", "repo", "title")
@@ -176,7 +178,7 @@ object ToolCatalog {
         "gh_comment_issue",
         "给 Issue 或 PR 添加评论。",
         mapOf(
-            "owner" to s("所有者"), "repo" to s("仓库名"), "number" to i("Issue/PR 编号"),
+            "owner" to s("所有者用户名"), "repo" to s("仓库名，只传名字不要带 owner/"), "number" to i("Issue/PR 编号"),
             "body" to s("评论内容")
         ),
         listOf("owner", "repo", "number", "body")
@@ -186,7 +188,7 @@ object ToolCatalog {
         "gh_list_pulls",
         "列出仓库的 PR。",
         mapOf(
-            "owner" to s("所有者"), "repo" to s("仓库名"), "state" to s("open / closed / all")
+            "owner" to s("所有者用户名"), "repo" to s("仓库名，只传名字不要带 owner/"), "state" to s("open / closed / all")
         ),
         listOf("owner", "repo")
     )
@@ -195,7 +197,7 @@ object ToolCatalog {
         "gh_create_pull",
         "创建 Pull Request。",
         mapOf(
-            "owner" to s("所有者"), "repo" to s("仓库名"), "title" to s("标题"),
+            "owner" to s("所有者用户名"), "repo" to s("仓库名，只传名字不要带 owner/"), "title" to s("标题"),
             "head" to s("源分支"), "base" to s("目标分支"), "body" to s("描述")
         ),
         listOf("owner", "repo", "title", "head", "base")
@@ -205,7 +207,7 @@ object ToolCatalog {
         "gh_merge_pull",
         "合并 PR（需用户确认）。",
         mapOf(
-            "owner" to s("所有者"), "repo" to s("仓库名"), "number" to i("PR 编号"),
+            "owner" to s("所有者用户名"), "repo" to s("仓库名，只传名字不要带 owner/"), "number" to i("PR 编号"),
             "method" to s("merge / squash / rebase，默认 merge"), "title" to s("合并提交标题")
         ),
         listOf("owner", "repo", "number")

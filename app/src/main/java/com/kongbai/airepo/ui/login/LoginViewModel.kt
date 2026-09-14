@@ -28,5 +28,7 @@ class LoginViewModel @Inject constructor(private val auth: AuthRepository) : Vie
         }
     }
 
+    fun setFallback(message: String) { _error.value = message }
+
     fun consumeError() { _error.value = null }
 }

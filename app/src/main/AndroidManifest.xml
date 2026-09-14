@@ -46,7 +46,7 @@
             android:name=".oauth.OAuthCallbackActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:theme="@android:style/Theme.NoDisplay">
+            android:theme="@style/Theme.AiRepoAssistant.Transparent">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

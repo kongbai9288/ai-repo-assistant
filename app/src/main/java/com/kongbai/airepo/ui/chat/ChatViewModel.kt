@@ -1,18 +1,22 @@
 package com.kongbai.airepo.ui.chat
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kongbai.airepo.data.local.ChatDao
 import com.kongbai.airepo.data.local.ConversationEntity
 import com.kongbai.airepo.data.local.MessageEntity
+import com.kongbai.airepo.data.prefs.NetMode
 import com.kongbai.airepo.data.prefs.SettingsRepository
 import com.kongbai.airepo.data.remote.ai.AiMessage
 import com.kongbai.airepo.data.repo.AgentEvent
 import com.kongbai.airepo.data.repo.AgentRepository
+import com.kongbai.airepo.data.tools.PickedFile
 import com.kongbai.airepo.data.tools.ToolRequest
+import com.kongbai.airepo.data.tools.UploadTools
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +29,8 @@ import javax.inject.Inject
 class ChatViewModel @Inject constructor(
     private val dao: ChatDao,
     private val agent: AgentRepository,
-    private val settings: SettingsRepository
+    private val settings: SettingsRepository,
+    private val upload: UploadTools
 ) : ViewModel() {
 
     val conversations: StateFlow<List<ConversationEntity>> =
@@ -43,19 +48,41 @@ class ChatViewModel @Inject constructor(
     private val _toast = MutableStateFlow<String?>(null)
     val toast: StateFlow<String?> = _toast
 
+    private val _netMode = MutableStateFlow(NetMode.AUTO)
+    val netMode: StateFlow<NetMode> = _netMode
+
+    private val _attachments = MutableStateFlow<List<PickedFile>>(emptyList())
+    val attachments: StateFlow<List<PickedFile>> = _attachments
+
     private var conversationId: String = UUID.randomUUID().toString()
     private var job: Job? = null
-    private var pendingAnswer: CompletableDeferred<Boolean>? = null
     private var messagesJob: Job? = null
+    private var pendingAnswer: CompletableDeferred<Boolean>? = null
     private var defaultRepo: String? = null
 
     fun setDefaultRepo(fullName: String?) { defaultRepo = fullName }
+    fun setNetMode(m: NetMode) { _netMode.value = m }
+
+    fun attach(uri: Uri) {
+        val f = upload.describe(uri)
+        if (f.size > 8 * 1024 * 1024) {
+            _toast.value = "文件超过 8MB，GitHub Contents API 有体积限制"
+            return
+        }
+        _attachments.value = _attachments.value + f
+    }
+
+    fun removeAttachment(f: PickedFile) {
+        _attachments.value = _attachments.value.filterNot { it === f }
+    }
 
     fun newConversation() {
         job?.cancel()
         conversationId = UUID.randomUUID().toString()
         _messages.value = emptyList()
+        _attachments.value = emptyList()
         _streaming.value = false
+        observe()
     }
 
     fun selectConversation(id: String) {
@@ -63,6 +90,7 @@ class ChatViewModel @Inject constructor(
         job?.cancel()
         conversationId = id
         _streaming.value = false
+        _attachments.value = emptyList()
         observe()
     }
 
@@ -98,38 +126,54 @@ class ChatViewModel @Inject constructor(
         val input = text.trim()
         if (input.isBlank() || _streaming.value) return
         messagesJob?.cancel()
+        val picked = _attachments.value.toList()
+        _attachments.value = emptyList()
         viewModelScope.launch {
-            val conv = ConversationEntity(
-                id = conversationId,
-                title = input.take(30),
-                updatedAt = System.currentTimeMillis()
+            dao.upsertConversation(
+                ConversationEntity(id = conversationId, title = input.take(30), updatedAt = System.currentTimeMillis())
             )
-            dao.upsertConversation(conv)
+
+            // 先把附件内容落库，AI 才能读到
+            val attachText = buildString {
+                picked.forEach { f ->
+                    val (content, isB64) = upload.read(f.uri)
+                    append("\n\n<附件 file=\"${f.name}\" size=${f.size} ${if (isB64) "encoding=base64" else "encoding=utf-8"}>\n")
+                    append(content)
+                    append("\n</附件>")
+                }
+            }
 
             val userMsg = MessageEntity(
                 id = UUID.randomUUID().toString(), conversationId = conversationId,
-                role = "user", content = input
+                role = "user", content = input + attachText
             )
             dao.insertMessage(userMsg)
             _messages.value = _messages.value + userMsg
 
-            val assistantId = UUID.randomUUID().toString()
             val assistantMsg = MessageEntity(
-                id = assistantId, conversationId = conversationId,
+                id = UUID.randomUUID().toString(), conversationId = conversationId,
                 role = "assistant", content = "", status = "running"
             )
             _messages.value = _messages.value + assistantMsg
 
             _streaming.value = true
-            job = launch { runAgent(assistantMsg) }
+            job = launch { runAgent(assistantMsg, _netMode.value) }
         }
     }
 
-    private suspend fun runAgent(assistantMsg: MessageEntity) {
+    private suspend fun runAgent(assistantMsg: MessageEntity, mode: NetMode) {
         val s = settings.current()
         val system = buildString {
             append(s.systemPrompt)
-            defaultRepo?.let { append("\n当前默认仓库：$it（用户没指定仓库时用它）") }
+            defaultRepo?.let {
+                val parts = it.split("/")
+                if (parts.size >= 2) {
+                    append("\n\n当前默认仓库 fullName=$it")
+                    append("\n调用 gh_* 时：owner=\"${parts[0]}\"，repo=\"${parts[1]}\"（务必分开传）")
+                } else append("\n当前默认仓库：$it")
+            }
+            if (mode == NetMode.ON) append("\n\n本条消息用户已开启联网：涉及版本、文档、报错、最新实践时必须先 web_search 再回答/动手。")
+            if (mode == NetMode.OFF) append("\n\n本条消息用户要求离线：不要调用 web_search / web_fetch，只用仓库工具。")
         }
         val history = mutableListOf<AiMessage>()
         if (system.isNotBlank()) history += AiMessage(role = "system", content = system)
@@ -150,7 +194,7 @@ class ChatViewModel @Inject constructor(
             _messages.value = _messages.value.map { if (it.id == msg.id) msg else it }
         }
 
-        agent.run(history) { req ->
+        agent.run(history, mode) { req ->
             _confirmRequest.value = req
             val d = CompletableDeferred<Boolean>()
             pendingAnswer = d

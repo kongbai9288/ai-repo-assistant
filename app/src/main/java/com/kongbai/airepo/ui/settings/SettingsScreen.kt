@@ -38,7 +38,7 @@ import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(vm: SettingsViewModel = hiltViewModel(), onLoggedOut: () -> Unit = {}) {
     val s by vm.settingsFlow.collectAsState()
     val models by vm.models.collectAsState()
     val info by vm.info.collectAsState()
@@ -82,7 +82,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
-                    TextButton(onClick = { vm.logout() }) {
+                    TextButton(onClick = { vm.logout(); onLoggedOut() }) {
                         Icon(Icons.Default.Logout, null)
                         Text(" 退出")
                     }

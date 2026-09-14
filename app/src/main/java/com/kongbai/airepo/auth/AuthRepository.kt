@@ -2,7 +2,6 @@ package com.kongbai.airepo.auth
 
 import android.content.Intent
 import android.net.Uri
-import androidx.browser.customtabs.CustomTabsIntent
 import com.kongbai.airepo.BuildConfig
 import com.kongbai.airepo.core.Constants
 import com.kongbai.airepo.core.SecureStore
@@ -45,7 +44,7 @@ class AuthRepository @Inject constructor(
 
     fun isLoggedIn(): Boolean = !_state.value.token.isNullOrBlank()
 
-    /** 构造 OAuth 2.0 + PKCE 授权请求，交给 Chrome Custom Tabs 打开 */
+    /** 构造 OAuth 2.0 + PKCE 授权请求，交给系统浏览器打开（比 Custom Tabs 兼容面广） */
     fun buildAuthIntent(): Intent {
         val verifier = Pkce.createVerifier()
         val st = Pkce.state()
@@ -60,14 +59,27 @@ class AuthRepository @Inject constructor(
             .appendQueryParameter("code_challenge_method", "S256")
             .appendQueryParameter("prompt", "consent")
             .build()
-        return CustomTabsIntent.Builder()
-            .setShowTitle(true)
-            .setUrlBarHidingEnabled(false)
-            .build()
-            .intent
-            .setData(url)
-            .addCategory(Intent.CATEGORY_BROWSABLE)
-            .setPackage(null)
+        return Intent(Intent.ACTION_VIEW, url).apply {
+            addCategory(Intent.CATEGORY_BROWSABLE)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_HISTORY)
+        }
+    }
+
+    /** 应用内 WebView 登录页地址（备用入口，用户在设置里可切） */
+    fun buildAuthUrl(): String {
+        val verifier = Pkce.createVerifier()
+        val st = Pkce.state()
+        pendingVerifier = verifier
+        pendingState = st
+        return Uri.parse(Constants.AUTH_URL).buildUpon()
+            .appendQueryParameter("client_id", clientId())
+            .appendQueryParameter("redirect_uri", Constants.REDIRECT_URI)
+            .appendQueryParameter("scope", Constants.SCOPES)
+            .appendQueryParameter("state", st)
+            .appendQueryParameter("code_challenge", Pkce.challenge(verifier))
+            .appendQueryParameter("code_challenge_method", "S256")
+            .appendQueryParameter("prompt", "consent")
+            .build().toString()
     }
 
     private fun clientId(): String = BuildConfig.GITHUB_CLIENT_ID
@@ -82,7 +94,8 @@ class AuthRepository @Inject constructor(
             _state.value = _state.value.copy(error = "回调里没有 code")
             return Result.failure(IllegalStateException("no code"))
         }
-        if (!pendingState.isNullOrBlank() && pendingState != state) {
+        // 浏览器回调可能拉起新进程导致 pendingState 丢失，此时只在两者都非空时校验
+        if (!pendingState.isNullOrBlank() && !state.isNullOrBlank() && pendingState != state) {
             _state.value = _state.value.copy(error = "state 校验失败，已阻止 CSRF")
             return Result.failure(IllegalStateException("state mismatch"))
         }
@@ -158,4 +171,7 @@ class AuthRepository @Inject constructor(
     }
 
     fun currentToken(): String? = _state.value.token
+
+    /** 当前登录用户名，工具参数缺省时用它推断 owner */
+    fun currentLogin(): String? = _state.value.user?.login
 }

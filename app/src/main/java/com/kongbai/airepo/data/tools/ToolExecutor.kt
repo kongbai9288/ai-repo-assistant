@@ -60,7 +60,8 @@ class ToolExecutor @Inject constructor(
                 ToolCatalog.GH_READ_FILE.name -> gh.readFile(a.str("owner"), a.str("repo"), a.str("path"), a["ref"] as? String)
                 ToolCatalog.GH_WRITE_FILE.name -> gh.writeFile(
                     a.str("owner"), a.str("repo"), a.str("path"), a.str("content"),
-                    a.str("message"), a["branch"] as? String, a["sha"] as? String
+                    a.str("message"), a["branch"] as? String, a["sha"] as? String,
+                    (a["content_base64"] as? Boolean) ?: (a["encoding"] as? String == "base64")
                 )
                 ToolCatalog.GH_DELETE_FILE.name -> gh.deleteFile(
                     a.str("owner"), a.str("repo"), a.str("path"), a.str("message"),

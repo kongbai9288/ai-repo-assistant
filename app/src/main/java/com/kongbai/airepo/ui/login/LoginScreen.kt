@@ -61,10 +61,18 @@ fun LoginScreen(
             )
             Spacer(Modifier.height(24.dp))
             Button(
-                onClick = { context.startActivity(auth.buildAuthIntent()) },
+                onClick = {
+                    runCatching { context.startActivity(auth.buildAuthIntent()) }
+                        .onFailure { vm.loginWithToken("").also { vm.setFallback("没拉起浏览器：${it.message}") } }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !busy
             ) { Text("使用 GitHub 登录（OAuth 2.0 + PKCE）") }
+            Text(
+                "点击后会用系统浏览器打开 GitHub 授权页，授权完成自动跳回本应用；回调地址 airepo://oauth2redirect",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Spacer(Modifier.height(12.dp))
             OutlinedButton(onClick = { showToken = !showToken }, modifier = Modifier.fillMaxWidth()) {
                 Text(if (showToken) "收起 Token 登录" else "用 Personal Access Token 登录")
@@ -94,6 +102,10 @@ fun LoginScreen(
             error?.let {
                 Spacer(Modifier.height(12.dp))
                 Text("登录失败：$it", color = MaterialTheme.colorScheme.error)
+                Text(
+                    "若浏览器没反应：确认装了 Chrome/Edge 等浏览器，或直接在上面用 Personal Access Token 登录。",
+                    style = MaterialTheme.typography.labelSmall
+                )
             }
             Spacer(Modifier.height(24.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {

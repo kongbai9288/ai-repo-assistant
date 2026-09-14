@@ -1,6 +1,7 @@
 package com.kongbai.airepo.data.repo
 
 import com.kongbai.airepo.core.Constants
+import com.kongbai.airepo.data.prefs.NetMode
 import com.kongbai.airepo.data.prefs.SettingsRepository
 import com.kongbai.airepo.data.remote.ai.AiEvent
 import com.kongbai.airepo.data.remote.ai.AiMessage
@@ -36,14 +37,27 @@ class AgentRepository @Inject constructor(
      * 一个最小的 ReAct 循环：模型输出 -> 工具调用 -> 结果回喂 -> 再输出，直到不再需要工具。
      * @param confirm 高危工具的二次确认，返回 false 表示拒绝执行
      */
-    fun run(messages: List<AiMessage>, confirm: suspend (ToolRequest) -> Boolean): Flow<AgentEvent> = flow {
+    fun run(
+        messages: List<AiMessage>,
+        netMode: NetMode = NetMode.AUTO,
+        confirm: suspend (ToolRequest) -> Boolean = { true }
+    ): Flow<AgentEvent> = flow {
         val s = settings.current()
         if (s.apiKey.isBlank() && !s.baseUrl.contains("localhost") && !s.baseUrl.contains("127.0.0.1")) {
             emit(AgentEvent.Error("还没配置 AI 接口的 Key，去「设置 → AI 接口」填一下（本地 Ollama / vLLM 可留空）"))
             emit(AgentEvent.Done)
             return@flow
         }
-        val defs = tools.definitions(includeWeb = s.webSearchEnabled)
+        // 离线模式彻底不给搜索工具；联网模式强制给；自动模式跟随全局开关
+        val useWeb = when (netMode) {
+            NetMode.ON -> true
+            NetMode.OFF -> false
+            NetMode.AUTO -> s.webSearchEnabled
+        }
+        val defs = tools.definitions(includeWeb = useWeb)
+        if (netMode == NetMode.ON) {
+            emit(AgentEvent.Status("已启用联网：优先用 web_search 查最新资料，再动手改仓库"))
+        }
         val working = messages.toMutableList()
         var step = 0
 
@@ -112,7 +126,10 @@ class AgentRepository @Inject constructor(
                     }
                 }
                 emit(AgentEvent.ToolStart(callId, name, tools.summarize(req)))
-                val result = tools.execute(req)
+                var result = tools.execute(req)
+                if (result.startsWith("工具执行异常") || result.startsWith("404") || result.startsWith("HTTP ")) {
+                    result += "\n（工具调用失败：请检查参数后换一种方式重试，或改用别的工具；不要重复用同样错误的参数）"
+                }
                 emit(AgentEvent.ToolDone(callId, name, result))
                 working.add(AiMessage(role = "tool", toolCallId = callId, content = result))
             }
