@@ -127,8 +127,12 @@ class AgentRepository @Inject constructor(
                 }
                 emit(AgentEvent.ToolStart(callId, name, tools.summarize(req)))
                 var result = tools.execute(req)
-                if (result.startsWith("工具执行异常") || result.startsWith("404") || result.startsWith("HTTP ")) {
-                    result += "\n（工具调用失败：请检查参数后换一种方式重试，或改用别的工具；不要重复用同样错误的参数）"
+                if (result.startsWith("工具执行异常") || result.startsWith("404") ||
+                    result.startsWith("HTTP ") || result.startsWith("抓取失败") ||
+                    result.startsWith("搜索失败")
+                ) {
+                    result += "\n（这次调用失败了：修正参数换一种方式重试；" +
+                        "若是信息不足或不确定正确做法，先 web_search 查清楚再继续，不要原地打转。）"
                 }
                 emit(AgentEvent.ToolDone(callId, name, result))
                 working.add(AiMessage(role = "tool", toolCallId = callId, content = result))

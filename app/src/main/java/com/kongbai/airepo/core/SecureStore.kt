@@ -38,5 +38,6 @@ class SecureStore @Inject constructor(@ApplicationContext context: Context) {
         const val KEY_GITHUB_TOKEN = "github_token"
         const val KEY_AI_KEY = "ai_api_key"
         const val KEY_REFRESH = "github_refresh"
+        const val KEY_SEARCH_KEY = "search_api_key"
     }
 }

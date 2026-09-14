@@ -6,6 +6,9 @@ import com.kongbai.airepo.auth.AuthRepository
 import com.kongbai.airepo.data.prefs.AiSettings
 import com.kongbai.airepo.data.prefs.SettingsRepository
 import com.kongbai.airepo.data.remote.ai.AiRest
+import com.kongbai.airepo.data.search.EngineReport
+import com.kongbai.airepo.data.search.SearchProvider
+import com.kongbai.airepo.data.search.WebSearch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,7 +21,8 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val ai: AiRest,
-    val auth: AuthRepository
+    val auth: AuthRepository,
+    private val web: WebSearch
 ) : ViewModel() {
 
     val settingsFlow: StateFlow<AiSettings> =
@@ -56,5 +60,27 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun logout() = auth.logout()
+    private val _diag = MutableStateFlow<List<EngineReport>>(emptyList())
+    val diag: StateFlow<List<EngineReport>> = _diag
+
+    private val _diagnosing = MutableStateFlow(false)
+    val diagnosing: StateFlow<Boolean> = _diagnosing
+
+    fun setSearchProvider(v: SearchProvider) = viewModelScope.launch { settings.setSearchProvider(v) }
+    fun setSearchEndpoint(v: String) = viewModelScope.launch { settings.setSearchEndpoint(v) }
+    fun setSearchKey(v: String) = viewModelScope.launch { settings.setSearchKey(v) }
+
+    /** 一键把每个搜索源都试一遍，直接看出哪个能通 */
+    fun diagnoseSearch() {
+        viewModelScope.launch {
+            _diagnosing.value = true
+            _diag.value = emptyList()
+            val s = settings.current()
+            _diag.value = web.diagnose("jetpack compose", s.searchEndpoint, s.searchKey)
+            _info.value = "自检完成，绿色为可用"
+            _diagnosing.value = false
+        }
+    }
+
     fun consumeInfo() { _info.value = null }
 }

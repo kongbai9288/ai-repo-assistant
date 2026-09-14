@@ -24,7 +24,7 @@ object ToolCatalog {
 
     val WEB_SEARCH = ToolSpec(
         "web_search",
-        "联网搜索（DuckDuckGo / Bing），返回标题、链接和摘要。需要最新资料、查文档、查报错时先调用它。",
+        "联网搜索，返回标题、链接、摘要。只要涉及版本/API/报错/最新实践/不确定的技术细节，就必须先调用它，不要凭记忆作答。搜到链接后用 web_fetch 读原文。",
         mapOf(
             "query" to s("搜索关键词，尽量具体"),
             "max_results" to i("返回条数，默认 5", 5)
@@ -34,7 +34,7 @@ object ToolCatalog {
 
     val WEB_FETCH = ToolSpec(
         "web_fetch",
-        "抓取指定网页正文（已去掉脚本样式），用于读取搜索结果里的具体页面。",
+        "抓取指定网页正文（去掉脚本样式）。用来读搜索结果里的具体页面、官方文档、GitHub 文件原文。web_search 之后通常要跟一次 web_fetch。",
         mapOf(
             "url" to s("完整 URL"),
             "max_chars" to i("最大字符数，默认 6000", 6000)

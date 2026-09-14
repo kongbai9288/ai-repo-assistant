@@ -3,6 +3,7 @@ package com.kongbai.airepo.data.tools
 import com.kongbai.airepo.core.Constants
 import com.kongbai.airepo.data.remote.ai.AiToolDef
 import com.kongbai.airepo.data.remote.ai.AiFunctionDef
+import com.kongbai.airepo.data.search.SearchOutcome
 import com.kongbai.airepo.data.search.WebSearch
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
@@ -15,7 +16,8 @@ data class ToolRequest(val name: String, val args: Map<String, Any?>)
 class ToolExecutor @Inject constructor(
     private val gh: GitHubTools,
     private val web: WebSearch,
-    private val moshi: Moshi
+    private val moshi: Moshi,
+    private val settings: com.kongbai.airepo.data.prefs.SettingsRepository
 ) {
     private val mapType = Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java)
     private val mapAdapter = moshi.adapter<Map<String, Any?>>(mapType)
@@ -39,14 +41,21 @@ class ToolExecutor @Inject constructor(
                 ToolCatalog.WEB_SEARCH.name -> {
                     val q = a["query"] as? String ?: error("缺少 query")
                     val n = (a["max_results"] as? Double)?.toInt() ?: 5
-                    val list = web.search(q, n)
-                    if (list.isEmpty()) "没有搜索结果" else list.mapIndexed { i, r ->
-                        "${i + 1}. ${r.title}\n   ${r.url}\n   ${r.snippet}"
-                    }.joinToString("\n")
+                    val cfg = settings.current()
+                    when (val out = web.search(q, n, cfg.searchProvider, cfg.searchEndpoint, cfg.searchKey)) {
+                        is SearchOutcome.Ok -> buildString {
+                            append("搜索成功（引擎：${out.engine}），共 ${out.items.size} 条：\n")
+                            out.items.forEachIndexed { i, r ->
+                                append("${i + 1}. ${r.title}\n   ${r.url}\n   ${r.snippet}\n")
+                            }
+                            append("\n需要详情时用 web_fetch 抓具体链接。")
+                        }
+                        is SearchOutcome.Failed -> "搜索失败：${out.reason}"
+                    }
                 }
                 ToolCatalog.WEB_FETCH.name -> {
                     val u = a["url"] as? String ?: error("缺少 url")
-                    val n = (a["max_chars"] as? Double)?.toInt() ?: 6000
+                    val n = (a["max_chars"] as? Double)?.toInt() ?: 8000
                     web.fetch(u, n)
                 }
                 ToolCatalog.GH_LIST_REPOS.name -> gh.listRepos((a["per_page"] as? Double)?.toInt() ?: 50)
