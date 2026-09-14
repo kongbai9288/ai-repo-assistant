@@ -2,6 +2,7 @@ package com.kongbai.airepo.auth
 
 import android.content.Context
 import android.content.Intent
+import androidx.browser.customtabs.CustomTabsIntent
 import android.net.Uri
 import com.kongbai.airepo.BuildConfig
 import com.kongbai.airepo.core.Constants
@@ -45,29 +46,8 @@ class AuthRepository @Inject constructor(
 
     fun isLoggedIn(): Boolean = !_state.value.token.isNullOrBlank()
 
-    /** 构造 OAuth 2.0 + PKCE 授权请求，交给系统浏览器打开（比 Custom Tabs 兼容面广） */
-    fun buildAuthIntent(): Intent {
-        val verifier = Pkce.createVerifier()
-        val st = Pkce.state()
-        pendingVerifier = verifier
-        pendingState = st
-        val url = Uri.parse(Constants.AUTH_URL).buildUpon()
-            .appendQueryParameter("client_id", clientId())
-            .appendQueryParameter("redirect_uri", Constants.REDIRECT_URI)
-            .appendQueryParameter("scope", Constants.SCOPES)
-            .appendQueryParameter("state", st)
-            .appendQueryParameter("code_challenge", Pkce.challenge(verifier))
-            .appendQueryParameter("code_challenge_method", "S256")
-            .appendQueryParameter("prompt", "consent")
-            .build()
-        return Intent(Intent.ACTION_VIEW, url).apply {
-            addCategory(Intent.CATEGORY_BROWSABLE)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_HISTORY)
-        }
-    }
-
-    /** 应用内 WebView 登录页地址（备用入口，用户在设置里可切） */
-    fun buildAuthUrl(): String {
+    /** 生成一次 PKCE 挑战并记住 verifier，返回完整授权地址 */
+    private fun buildAuthorizeUri(): Uri {
         val verifier = Pkce.createVerifier()
         val st = Pkce.state()
         pendingVerifier = verifier
@@ -80,10 +60,59 @@ class AuthRepository @Inject constructor(
             .appendQueryParameter("code_challenge", Pkce.challenge(verifier))
             .appendQueryParameter("code_challenge_method", "S256")
             .appendQueryParameter("prompt", "consent")
-            .build().toString()
+            .build()
     }
 
-    private fun clientId(): String = BuildConfig.GITHUB_CLIENT_ID
+    /** 系统浏览器版：兼容面最广 */
+    fun buildAuthIntent(): Intent {
+        val url = buildAuthorizeUri()
+        return Intent(Intent.ACTION_VIEW, url).apply {
+            addCategory(Intent.CATEGORY_BROWSABLE)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_HISTORY)
+        }
+    }
+
+    /** Chrome Custom Tabs 版：视觉上不离开应用。setSendToExternalDefaultHandlerEnabled 必须开，
+     *  否则建连后 CCT 会自己消化掉回调，custom scheme 回不到本应用。 */
+    fun buildCustomTabsIntent(): Intent {
+        val url = buildAuthorizeUri()
+        return CustomTabsIntent.Builder()
+            .setShowTitle(true)
+            .setSendToExternalDefaultHandlerEnabled(true)
+            .build()
+            .intent
+            .setData(url)
+            .addCategory(Intent.CATEGORY_BROWSABLE)
+    }
+
+    /** 应用内 WebView 登录页地址 */
+    fun buildAuthUrl(): String = buildAuthorizeUri().toString()
+
+    /**
+     * GitHub 的 token 交换端点把 client_secret 标为 Required ——
+     * PKCE 只是加固手段，不能顶替 secret。公开客户端只能把 secret 打进应用里，
+     * 官方也承认这一点。所以这里优先取用户填的，其次取构建期注入的。
+     */
+    private fun clientId(): String =
+        secureStore.get(SecureStore.KEY_CLIENT_ID)?.trim()?.ifBlank { null }
+            ?: BuildConfig.GITHUB_CLIENT_ID
+
+    private fun clientSecret(): String =
+        secureStore.get(SecureStore.KEY_CLIENT_SECRET)?.trim()?.ifBlank { null }
+            ?: BuildConfig.GITHUB_CLIENT_SECRET
+
+    fun hasSecret(): Boolean {
+        val v = clientSecret()
+        return v.isNotBlank() && v != "REPLACE_ME"
+    }
+
+    /** 让用户在应用里补填自己的 OAuth App 凭据 */
+    suspend fun saveCredentials(clientId: String?, clientSecret: String?) {
+        clientId?.trim()?.takeIf { it.isNotBlank() }?.let { secureStore.put(SecureStore.KEY_CLIENT_ID, it) }
+        clientSecret?.trim()?.takeIf { it.isNotBlank() }?.let { secureStore.put(SecureStore.KEY_CLIENT_SECRET, it) }
+    }
+
+    fun savedClientId(): String = secureStore.get(SecureStore.KEY_CLIENT_ID).orEmpty()
 
     /** 备用：系统浏览器授权。部分 ROM 会拦截自定义 scheme，因此主流程已改用应用内 WebView。 */
     fun launchBrowser(context: android.content.Context) {
@@ -126,8 +155,11 @@ class AuthRepository @Inject constructor(
             append("&code=").append(URLEncoder.encode(code, "UTF-8"))
             append("&redirect_uri=").append(URLEncoder.encode(Constants.REDIRECT_URI, "UTF-8"))
             if (!verifier.isNullOrBlank()) append("&code_verifier=").append(URLEncoder.encode(verifier, "UTF-8"))
-            val secret = BuildConfig.GITHUB_CLIENT_SECRET
-            if (secret.isNotBlank() && secret != "REPLACE_ME") append("&client_secret=").append(URLEncoder.encode(secret, "UTF-8"))
+            // GitHub 文档：client_secret 为 Required，PKCE 不能替代
+            val secret = clientSecret()
+            if (secret.isNotBlank() && secret != "REPLACE_ME") {
+                append("&client_secret=").append(URLEncoder.encode(secret, "UTF-8"))
+            }
         }
         val req = Request.Builder()
             .url(Constants.TOKEN_URL)
@@ -141,7 +173,11 @@ class AuthRepository @Inject constructor(
             val parsed = runCatching { tokenAdapter.fromJson(body) }.getOrNull()
             val token = parsed?.accessToken
             if (!resp.isSuccessful || token.isNullOrBlank()) {
-                error(parsed?.errorDescription ?: parsed?.error ?: "换取 token 失败 HTTP ${resp.code}")
+                val detail = parsed?.errorDescription ?: parsed?.error
+                if (!hasSecret()) {
+                    error("缺少 Client Secret：GitHub 的 token 交换端点强制要求 client_secret（PKCE 不能替代）。请到登录页下方填写你的 OAuth App 的 Client Secret。")
+                }
+                error(detail ?: "换取 token 失败 HTTP ${resp.code}")
             }
             parsed?.refreshToken?.let { secureStore.put(SecureStore.KEY_REFRESH, it) }
             token

@@ -4,7 +4,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import org.jsoup.Jsoup
@@ -217,7 +219,7 @@ class WebSearch @Inject constructor(private val ok: OkHttpClient) {
         }.toString()
         val req = Request.Builder().url("https://api.tavily.com/search")
             .addHeader("Content-Type", "application/json")
-            .post(okhttp3.RequestBody.Companion.create(json, null)).build()
+            .post(json.toRequestBody("application/json".toMediaType())).build()
         val raw = exec(req) ?: return emptyList()
         val arr = JSONObject(raw).optJSONArray("results") ?: JSONArray()
         val out = mutableListOf<SearchResultItem>()
@@ -239,7 +241,7 @@ class WebSearch @Inject constructor(private val ok: OkHttpClient) {
         val req = Request.Builder().url("https://google.serper.dev/search")
             .addHeader("X-API-KEY", key)
             .addHeader("Content-Type", "application/json")
-            .post(okhttp3.RequestBody.Companion.create(json, null)).build()
+            .post(json.toRequestBody("application/json".toMediaType())).build()
         val raw = exec(req) ?: return emptyList()
         val arr = JSONObject(raw).optJSONArray("organic") ?: JSONArray()
         val out = mutableListOf<SearchResultItem>()
@@ -265,7 +267,7 @@ class WebSearch @Inject constructor(private val ok: OkHttpClient) {
         val req = Request.Builder().url("https://api.bochaai.com/v1/web-search")
             .addHeader("Authorization", "Bearer $key")
             .addHeader("Content-Type", "application/json")
-            .post(okhttp3.RequestBody.Companion.create(json, null)).build()
+            .post(json.toRequestBody("application/json".toMediaType())).build()
         val raw = exec(req) ?: return emptyList()
         val arr = JSONObject(raw).optJSONObject("data")
             ?.optJSONArray("webPages")?.optJSONObject(0)?.optJSONArray("value") ?: JSONArray()

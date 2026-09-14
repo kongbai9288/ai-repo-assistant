@@ -77,6 +77,14 @@ class MainActivity : ComponentActivity() {
                     state.token.isNullOrBlank() -> LoginScreen(
                         auth = auth,
                         externalError = loginError,
+                        onCustomTabsLogin = {
+                            loginError = null
+                            runCatching {
+                                startActivity(auth.buildCustomTabsIntent())
+                            }.onFailure {
+                                loginError = "拉起浏览器失败：${it.message}"
+                            }
+                        },
                         onWebLogin = {
                             loginError = null
                             authUrl = auth.buildAuthUrl()

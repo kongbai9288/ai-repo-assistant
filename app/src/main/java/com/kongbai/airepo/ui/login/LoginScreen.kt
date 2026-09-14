@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -25,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -37,6 +39,7 @@ fun LoginScreen(
     vm: LoginViewModel = hiltViewModel(),
     auth: AuthRepository,
     externalError: String? = null,
+    onCustomTabsLogin: () -> Unit = {},
     onWebLogin: () -> Unit = {},
     onBrowserLogin: () -> Unit = {}
 ) {
@@ -44,6 +47,10 @@ fun LoginScreen(
     val error by vm.error.collectAsState()
     var token by remember { mutableStateOf("") }
     var showToken by remember { mutableStateOf(false) }
+    var showCreds by remember { mutableStateOf(false) }
+    var clientId by remember(auth.savedClientId()) { mutableStateOf(auth.savedClientId()) }
+    var clientSecret by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
 
     Surface {
         Column(
@@ -62,21 +69,28 @@ fun LoginScreen(
             )
             Spacer(Modifier.height(24.dp))
             Button(
-                onClick = onWebLogin,
+                onClick = onCustomTabsLogin,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !busy
-            ) { Text("GitHub 登录（应用内授权）") }
+            ) { Text("GitHub 登录") }
             Text(
-                "在应用内打开 GitHub 授权页，授权后自动回到本应用 —— 不依赖外部浏览器跳转",
+                "在浏览器标签页打开 GitHub 授权页，点授权后自动跳回本应用；OAuth 登录必须先在下方填 Client Secret",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(10.dp))
-            OutlinedButton(
-                onClick = onBrowserLogin,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !busy
-            ) { Text("用系统浏览器授权（备用）") }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = onWebLogin,
+                    modifier = Modifier.weight(1f),
+                    enabled = !busy
+                ) { Text("应用内网页") }
+                OutlinedButton(
+                    onClick = onBrowserLogin,
+                    modifier = Modifier.weight(1f),
+                    enabled = !busy
+                ) { Text("系统浏览器") }
+            }
             Spacer(Modifier.height(12.dp))
             OutlinedButton(onClick = { showToken = !showToken }, modifier = Modifier.fillMaxWidth()) {
                 Text(if (showToken) "收起 Token 登录" else "用 Personal Access Token 登录")
@@ -98,6 +112,42 @@ fun LoginScreen(
                     enabled = token.isNotBlank() && !busy,
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("连接") }
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { showCreds = !showCreds }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (showCreds) "收起 OAuth 凭据设置" else "填写 Client ID / Secret（OAuth 登录必需）")
+            }
+            if (showCreds) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "GitHub 的 token 交换端点强制要求 client_secret，PKCE 不能替代。\n" +
+                        "去 github.com/settings/developers 打开你的 OAuth App，复制 Client ID 和 " +
+                        "Client Secret（点 Generate a new client secret），回调地址填 airepo://oauth2redirect",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = clientId, onValueChange = { clientId = it },
+                    label = { Text("Client ID") }, modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(
+                    value = clientSecret, onValueChange = { clientSecret = it },
+                    label = { Text("Client Secret") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+                Spacer(Modifier.height(6.dp))
+                Button(
+                    onClick = {
+                        scope.launch {
+                            auth.saveCredentials(clientId, clientSecret)
+                            vm.setFallback("凭据已保存，现在点上面的「GitHub 登录」")
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("保存凭据") }
             }
             if (busy) {
                 Spacer(Modifier.height(16.dp))

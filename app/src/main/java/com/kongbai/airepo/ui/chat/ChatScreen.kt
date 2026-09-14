@@ -158,7 +158,7 @@ fun ChatScreen(
                     ) {
                         NetModeChip(current = netMode) { vm.setNetMode(it) }
                         Spacer(Modifier.weight(1f))
-                        IconButton(onClick = { launcher.launch("*/*")  // 任意格式 }) {
+                        IconButton(onClick = { launcher.launch("*/*") }) {
                             Icon(Icons.Default.AttachFile, contentDescription = "附加本地文件")
                         }
                     }
