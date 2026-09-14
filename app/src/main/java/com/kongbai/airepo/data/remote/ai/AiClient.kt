@@ -131,7 +131,11 @@ class AiClient(private val ok: OkHttpClient, private val moshi: Moshi) : AiRest 
                         val payload = line.removePrefix("data:").trim()
                         if (payload == "[DONE]") break
                         val chunk = runCatching { respAdapter.fromJson(payload) }.getOrNull() ?: continue
-                        chunk.error?.let { emit(AiEvent.Failed(it.message ?: "AI 接口报错")); break }
+                        val apiError = chunk.error
+                        if (apiError != null) {
+                            emit(AiEvent.Failed(apiError.message ?: "AI 接口报错"))
+                            break
+                        }
                         val choice = chunk.choices.firstOrNull() ?: continue
                         choice.delta?.content?.let { if (it.isNotEmpty()) emit(AiEvent.Text(it)) }
                         choice.delta?.toolCalls?.forEach { tc ->

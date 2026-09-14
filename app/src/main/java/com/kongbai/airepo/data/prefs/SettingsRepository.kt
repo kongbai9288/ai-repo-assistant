@@ -30,7 +30,7 @@ data class AiSettings(
     val streamEnabled: Boolean = true
 ) {
     companion object {
-        const val DEFAULT_SYSTEM_PROMPT = """
+        val DEFAULT_SYSTEM_PROMPT = """
 你是「AI 仓库助手」——一个可以直接动手操作 GitHub 仓库的 AI 代理，运行在 Android 客户端里。
 能力边界：
 1. 通过 github_* 工具读写仓库：读文件、列目录、改文件并提交、建分支、开 Issue/PR、合 PR、搜索代码。

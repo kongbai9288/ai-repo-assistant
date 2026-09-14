@@ -97,23 +97,24 @@ class AgentRepository @Inject constructor(
 
             for (c in calls) {
                 val name = c.function.name ?: continue
+                val callId = c.id ?: "call_$name"
                 val args = tools.parseArgs(c.function.arguments)
                 val req = ToolRequest(name, args)
                 val needsConfirm = name in Constants.DANGEROUS_TOOLS
                 if (needsConfirm) {
                     emit(AgentEvent.Status("等待确认：$name"))
                     if (!confirm(req)) {
-                        emit(AgentEvent.ToolDenied(c.id, name))
+                        emit(AgentEvent.ToolDenied(callId, name))
                         working.add(
-                            AiMessage(role = "tool", toolCallId = c.id, content = "用户拒绝了该操作，请改用它法或向用户确认。")
+                            AiMessage(role = "tool", toolCallId = callId, content = "用户拒绝了该操作，请改用它法或向用户确认。")
                         )
                         continue
                     }
                 }
-                emit(AgentEvent.ToolStart(c.id, name, tools.summarize(req)))
+                emit(AgentEvent.ToolStart(callId, name, tools.summarize(req)))
                 val result = tools.execute(req)
-                emit(AgentEvent.ToolDone(c.id, name, result))
-                working.add(AiMessage(role = "tool", toolCallId = c.id, content = result))
+                emit(AgentEvent.ToolDone(callId, name, result))
+                working.add(AiMessage(role = "tool", toolCallId = callId, content = result))
             }
             if (finished == "stop" && calls.isNotEmpty()) {
                 // 少数实现会在同一轮返回 stop + tool_calls，这里继续下一轮

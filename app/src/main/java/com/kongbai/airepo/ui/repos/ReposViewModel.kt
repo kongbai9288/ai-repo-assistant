@@ -62,7 +62,7 @@ class ReposViewModel @Inject constructor(private val api: GitHubService) : ViewM
             runCatching {
                 val resp = api.getContent(owner, repo, path, ref)
                 val body = resp.body()?.string().orEmpty()
-                val decoded = Regex("\"content\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues[1]
+                val decoded = Regex("\"content\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
                 if (decoded != null) {
                     String(android.util.Base64.decode(decoded.replace("\\n", ""), android.util.Base64.DEFAULT))
                 } else "无法解析文件内容"

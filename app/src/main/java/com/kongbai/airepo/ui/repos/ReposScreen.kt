@@ -108,7 +108,7 @@ fun ReposScreen(vm: ReposViewModel = hiltViewModel(), onPickRepo: (String) -> Un
                                     .weight(1f)
                                     .padding(horizontal = 8.dp),
                                 maxLines = 1,
-                                overflow = TextOverflow.MiddleEllipsis,
+                                overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             if (e.type == "blob") Icon(Icons.Default.ChevronRight, null, modifier = Modifier.size(16.dp))
