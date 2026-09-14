@@ -40,11 +40,13 @@ jobs:
           mkdir -p ci
           cp build.log ci/build.log 2>/dev/null || echo "no log" > ci/build.log
           { echo "=== run ${GITHUB_RUN_ID} ==="
-            grep -n -A 30 "What went wrong" build.log | head -80
-            echo "--- kotlin errors ---"
-            grep -E "^e: " build.log | head -60
-            echo "--- head 60 ---"
-            head -60 build.log
+            grep -n -A 40 "What went wrong" build.log | head -80
+            echo "--- javac / kotlin errors ---"
+            grep -nE "error:|\.java:[0-9]+:|^e: |error: cannot find symbol|Compilation failed" build.log | head -80
+            echo "--- context around first error ---"
+            awk '/error:/{found=NR} END{}' build.log >/dev/null
+            FIRSTERR=$(grep -n -m1 "error:" build.log | cut -d: -f1)
+            if [ -n "$FIRSTERR" ]; then sed -n "$((FIRSTERR>30?FIRSTERR-30:1)),$((FIRSTERR+60))p" build.log; fi
           } > ci/build-errors.txt 2>&1 || true
           wc -l ci/build.log
 
