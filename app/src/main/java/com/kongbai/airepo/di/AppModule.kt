@@ -42,6 +42,11 @@ object AppModule {
         .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
         .build()
 
+    /** 不需要挂 Token 的场景（AI 接口、OAuth 换 token、联网搜索）直接用这个无限定实例 */
+    @Provides
+    @Singleton
+    fun provideDefaultOkHttp(@Named("plain") ok: OkHttpClient): OkHttpClient = ok
+
     /** GitHub 专用：自动挂 Bearer Token，token 从加密存储里实时读取 */
     @Provides
     @Singleton
