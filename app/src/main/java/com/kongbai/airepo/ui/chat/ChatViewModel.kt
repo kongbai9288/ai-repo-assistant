@@ -69,15 +69,25 @@ class ChatViewModel @Inject constructor(
     fun setDefaultRepo(fullName: String?) { defaultRepo = fullName }
     fun setNetMode(m: NetMode) { _netMode.value = m }
 
-    /** 任意格式都能附加：文本直接读内容，其他格式给 base64 供 gh_write_file 提交 */
+    /** 任意格式都能附加。选中即复制到 App 私有目录并全程异步，任何失败都只提示不崩溃 */
     fun attach(uri: Uri) {
-        val f = upload.describe(uri)
-        _attachments.value = _attachments.value + f
-        _toast.value = "已附加 ${f.name}${if (f.isBinary) "（二进制，将按 base64 处理）" else ""}"
+        viewModelScope.launch {
+            _toast.value = "正在导入文件…"
+            upload.import(uri)
+                .onSuccess { f ->
+                    _attachments.value = _attachments.value + f
+                    val size = if (f.size > 0) "${f.size / 1024}KB" else "?"
+                    _toast.value = "已附加 ${f.name} · $size · ${if (f.isBinary) "二进制(base64)" else "文本"}"
+                }
+                .onFailure { e ->
+                    _toast.value = "导入失败：${e.message ?: "无法读取该文件"}"
+                }
+        }
     }
 
     fun removeAttachment(f: PickedFile) {
-        _attachments.value = _attachments.value.filterNot { it === f }
+        _attachments.value = _attachments.value.filterNot { it.id == f.id }
+        upload.delete(f)
     }
 
     fun newConversation() {
@@ -86,6 +96,7 @@ class ChatViewModel @Inject constructor(
         _messages.value = emptyList()
         _attachments.value = emptyList()
         _streaming.value = false
+        upload.clearAll()
         observe()
     }
 
@@ -140,7 +151,7 @@ class ChatViewModel @Inject constructor(
             // 先把附件内容落库，AI 才能读到
             val attachText = buildString {
                 picked.forEach { f ->
-                    val (content, isB64) = upload.read(f.uri)
+                    val (content, isB64) = upload.read(f)
                     append("\n\n<附件 file=\"${f.name}\" mime=\"${f.mime ?: "unknown"}\" size=${f.size} ${if (isB64) "encoding=base64" else "encoding=utf-8"}>\n")
                     append(content)
                     append("\n</附件>")

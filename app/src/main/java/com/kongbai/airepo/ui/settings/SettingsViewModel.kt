@@ -3,6 +3,7 @@ package com.kongbai.airepo.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kongbai.airepo.auth.AuthRepository
+import com.kongbai.airepo.core.CrashHandler
 import com.kongbai.airepo.data.prefs.AiSettings
 import com.kongbai.airepo.data.prefs.SettingsRepository
 import com.kongbai.airepo.data.remote.ai.AiRest
@@ -22,7 +23,8 @@ class SettingsViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val ai: AiRest,
     val auth: AuthRepository,
-    private val web: WebSearch
+    private val web: WebSearch,
+    private val crash: CrashHandler
 ) : ViewModel() {
 
     val settingsFlow: StateFlow<AiSettings> =
@@ -80,6 +82,17 @@ class SettingsViewModel @Inject constructor(
             _info.value = "自检完成，绿色为可用"
             _diagnosing.value = false
         }
+    }
+
+    private val _crashLog = MutableStateFlow("")
+    val crashLog: StateFlow<String> = _crashLog
+
+    fun loadCrashLog() {
+        viewModelScope.launch { _crashLog.value = crash.read() }
+    }
+
+    fun clearCrashLog() {
+        viewModelScope.launch { crash.clear(); _crashLog.value = "" }
     }
 
     fun consumeInfo() { _info.value = null }

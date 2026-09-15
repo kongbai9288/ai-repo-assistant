@@ -60,6 +60,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel(), onLoggedOut: () -> U
     var searchKey by remember(s.searchKey) { mutableStateOf(s.searchKey) }
     val diag by vm.diag.collectAsState()
     val diagnosing by vm.diagnosing.collectAsState()
+    val crashLog by vm.crashLog.collectAsState()
 
     Scaffold(topBar = {
         TopAppBar(
@@ -195,6 +196,26 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel(), onLoggedOut: () -> U
                         modifier = Modifier.padding(start = 4.dp)
                     )
                 }
+            }
+
+            SectionTitle("诊断")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { vm.loadCrashLog() }) { Text("查看崩溃日志") }
+                TextButton(onClick = { vm.clearCrashLog() }) { Text("清空") }
+            }
+            if (crashLog.isNotBlank()) {
+                Text(
+                    crashLog,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 220.dp)
+                        .verticalScroll(rememberScrollState())
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(8.dp)
+                )
             }
 
             SectionTitle("温度：${"%.2f".format(temp)}")
