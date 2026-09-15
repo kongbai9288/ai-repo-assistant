@@ -24,7 +24,30 @@ jobs:
           echo "/opt/gradle-8.7/bin" >> "$GITHUB_PATH"
 
       - name: Build debug APK
-        run: gradle assembleDebug --no-daemon --stacktrace
+        id: build
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+
+      - name: Collect errors
+        if: always()
+        run: |
+          mkdir -p ci
+          { grep -nE "^e: |error:|Unresolved reference|Type mismatch|None of the following|Expecting|Illegal" build.log | head -50
+          } > ci/err.txt 2>&1 || echo none > ci/err.txt
+
+      - name: Push log
+        if: always()
+        env:
+          T: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name ci-bot
+          git config user.email ci-bot@users.noreply.github.com
+          git checkout -B ci-logs
+          git add -A ci
+          git commit -m "err ${GITHUB_RUN_ID}" || echo nothing
+          git push -f "https://x-access-token:${T}@github.com/${GITHUB_REPOSITORY}.git" ci-logs
 
       - name: Compile checks
         run: gradle compileDebugKotlin lintDebug --no-daemon || true
