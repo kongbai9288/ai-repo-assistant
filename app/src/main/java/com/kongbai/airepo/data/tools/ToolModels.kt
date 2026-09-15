@@ -44,7 +44,7 @@ object ToolCatalog {
 
     val GH_LIST_REPOS = ToolSpec(
         "gh_list_repos",
-        "列出当前登录用户有权限的仓库（含私有、组织仓库）。",
+        "列出当前登录用户有权限的全部仓库（含私有、协作者、组织仓库）。需要别的仓库、或不确定仓库叫什么名字时，先调这个。",
         mapOf("per_page" to i("数量，默认 50", 50))
     )
 
@@ -215,14 +215,14 @@ object ToolCatalog {
 
     val GH_SEARCH_CODE = ToolSpec(
         "gh_search_code",
-        "在 GitHub 上搜索代码，例如 q=\"org: JetBrains language:Kotlin\"。",
+        "跨全 GitHub 搜索代码，可指定 repo:/org:/user:/language: 等限定符，例如 q=\"org:JetBrains language:Kotlin Compose\"、q=\"repo:owner/name 关键词\"。用来反查某个功能在哪个仓库怎么实现。",
         mapOf("q" to s("GitHub 代码搜索语法"), "per_page" to i("条数，默认 10", 10)),
         listOf("q")
     )
 
     val GH_SEARCH_REPOS = ToolSpec(
         "gh_search_repos",
-        "搜索 GitHub 仓库。",
+        "搜索 GitHub 上的仓库（含别人的公开仓库），返回 fullName / 星标 / 描述，便于定位可借鉴的项目。例如 q=\"android github client compose\"。",
         mapOf("q" to s("搜索语法"), "per_page" to i("条数，默认 10", 10)),
         listOf("q")
     )

@@ -20,7 +20,9 @@ object Constants {
     const val DEFAULT_AI_MODEL = "gpt-4o-mini"
     const val DEFAULT_TEMPERATURE = 0.3f
     const val MAX_TOOL_OUTPUT_CHARS = 12_000
-    const val MAX_AGENT_STEPS = 12
+    const val MAX_AGENT_STEPS = 48
+    /** 自动续跑轮数：一轮跑满 MAX_AGENT_STEPS 还没完，自动接着跑 */
+    const val MAX_AUTO_CONTINUE = 4
     const val REQUEST_TIMEOUT_SECONDS = 120L
 
     /** 需要用户二次确认的高危操作 */

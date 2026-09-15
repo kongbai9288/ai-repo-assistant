@@ -51,6 +51,12 @@ class ChatViewModel @Inject constructor(
     private val _netMode = MutableStateFlow(NetMode.AUTO)
     val netMode: StateFlow<NetMode> = _netMode
 
+    /** 开=跑满步数上限后自动接着跑，适合跨仓库搬代码这类长任务 */
+    private val _autoContinue = MutableStateFlow(false)
+    val autoContinue: StateFlow<Boolean> = _autoContinue
+
+    fun setAutoContinue(v: Boolean) { _autoContinue.value = v }
+
     private val _attachments = MutableStateFlow<List<PickedFile>>(emptyList())
     val attachments: StateFlow<List<PickedFile>> = _attachments
 
@@ -167,10 +173,18 @@ class ChatViewModel @Inject constructor(
             defaultRepo?.let {
                 val parts = it.split("/")
                 if (parts.size >= 2) {
-                    append("\n\n当前默认仓库 fullName=$it")
-                    append("\n调用 gh_* 时：owner=\"${parts[0]}\"，repo=\"${parts[1]}\"（务必分开传）")
-                } else append("\n当前默认仓库：$it")
+                    append("\n\n当前上下文仓库是 $it（owner=\"${parts[0]}\"，repo=\"${parts[1]}\"）。")
+                    append("\n用户没明确说别的仓库时，默认操作它。")
+                } else append("\n当前上下文仓库：$it")
             }
+            append("\n\n【跨仓库能力 —— 重要】")
+            append("\n你可以读写当前账号有权限的【任何】仓库，不限于上面的上下文仓库。")
+            append("\n需要别的仓库的资源时，按这个顺序做：")
+            append("\n1) 先定位仓库：gh_list_repos 看自己/参与的全部仓库；")
+            append("\n   或 gh_search_repos 搜公共仓库；或 gh_search_code 按代码内容反查仓库。")
+            append("\n2) 拿到 owner 和 repo 后，就能用 gh_read_file / gh_get_tree / gh_list_dir 读它的内容。")
+            append("\n3) 要搬运时：读源仓库 → 按目标仓库的目录结构与代码风格适配 → gh_write_file 写到目标仓库。")
+            append("\n4) 别凭印象猜别的仓库的路径，先用 gh_get_tree 看清结构再动手。")
             if (mode == NetMode.ON) append("\n\n本条消息用户已开启联网：涉及版本、文档、报错、最新实践时必须先 web_search 再回答/动手。")
             if (mode == NetMode.OFF) append("\n\n本条消息用户要求离线：不要调用 web_search / web_fetch，只用仓库工具。")
         }
@@ -193,7 +207,7 @@ class ChatViewModel @Inject constructor(
             _messages.value = _messages.value.map { if (it.id == msg.id) msg else it }
         }
 
-        agent.run(history, mode) { req ->
+        agent.run(history, mode, _autoContinue.value) { req ->
             _confirmRequest.value = req
             val d = CompletableDeferred<Boolean>()
             pendingAnswer = d

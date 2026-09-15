@@ -98,6 +98,7 @@ fun ChatScreen(
     var input by remember { mutableStateOf("") }
     val netMode by vm.netMode.collectAsState()
     val attachments by vm.attachments.collectAsState()
+    val autoContinue by vm.autoContinue.collectAsState()
 
     LaunchedEffect(messages.size, messages.lastOrNull()?.content?.length) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
@@ -158,6 +159,11 @@ fun ChatScreen(
                     ) {
                         NetModeChip(current = netMode) { vm.setNetMode(it) }
                         Spacer(Modifier.weight(1f))
+                        FilterChip(
+                            selected = autoContinue,
+                            onClick = { vm.setAutoContinue(!autoContinue) },
+                            label = { Text("自动继续", style = MaterialTheme.typography.labelMedium) }
+                        )
                         IconButton(onClick = { launcher.launch("*/*") }) {
                             Icon(Icons.Default.AttachFile, contentDescription = "附加本地文件")
                         }

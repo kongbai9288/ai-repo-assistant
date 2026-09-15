@@ -40,6 +40,7 @@ class AgentRepository @Inject constructor(
     fun run(
         messages: List<AiMessage>,
         netMode: NetMode = NetMode.AUTO,
+        autoContinue: Boolean = false,
         confirm: suspend (ToolRequest) -> Boolean = { true }
     ): Flow<AgentEvent> = flow {
         val s = settings.current()
@@ -59,6 +60,10 @@ class AgentRepository @Inject constructor(
             emit(AgentEvent.Status("已启用联网：优先用 web_search 查最新资料，再动手改仓库"))
         }
         val working = messages.toMutableList()
+        var round = 0
+
+        // 外层 = 自动续跑轮次；内层 = 单轮内的工具调用步数
+        while (round <= Constants.MAX_AUTO_CONTINUE) {
         var step = 0
 
         while (step < Constants.MAX_AGENT_STEPS) {
@@ -141,7 +146,23 @@ class AgentRepository @Inject constructor(
                 // 少数实现会在同一轮返回 stop + tool_calls，这里继续下一轮
             }
         }
-        emit(AgentEvent.Status("已达到最大步数 ${Constants.MAX_AGENT_STEPS}，先停下来"))
+        // 跑满一轮：要么收尾，要么自动续跑
+        if (autoContinue && round < Constants.MAX_AUTO_CONTINUE) {
+            round++
+            emit(AgentEvent.Status("第 $round 轮跑满 ${Constants.MAX_AGENT_STEPS} 步，自动继续…"))
+            working.add(
+                AiMessage(
+                    role = "user",
+                    content = "你已用完本轮步数但任务还没完成。请直接接着上一步继续做，" +
+                        "不要重新开始、不要复述已完成的部分；如果已经全部完成，就简短说明结果即可。"
+                )
+            )
+        } else {
+            emit(AgentEvent.Status("已跑满 ${Constants.MAX_AGENT_STEPS} 步上限，先停下来（可在输入框上方开「自动继续」）"))
+            emit(AgentEvent.Done)
+            return@flow
+        }
+        }
         emit(AgentEvent.Done)
     }
 

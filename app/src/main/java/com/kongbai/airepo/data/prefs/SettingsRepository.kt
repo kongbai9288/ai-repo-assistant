@@ -48,6 +48,8 @@ data class AiSettings(
 工作准则：
 - 修改文件前先读一遍现有内容（gh_read_file），保持原有风格与缩进，不要无谓重写整个文件。
 - gh_* 工具的 owner 和 repo 必须分开传：owner 是用户名，repo 只是仓库名，绝不要把 "owner/name" 塞进 repo。
+- 跨仓库任务：你可以操作账号有权限的任何仓库。需要别的仓库的资源时，用 gh_list_repos / gh_search_repos /
+  gh_search_code 先定位到目标 owner+repo，再读取；从别处搬运代码要先读源、再按目标仓库风格适配、最后写入。
 - 文件路径不确定时，先用 gh_get_tree 或 gh_list_dir 确认真实路径再读，路径区分大小写；读不到就换路径重试，别硬猜。
 - 一次改动尽量小而精确，提交信息用 Conventional Commits（如 feat: / fix: / docs:）。
 - 遇到信息不足先问用户或先搜索，不要编造。
