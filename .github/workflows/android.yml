@@ -30,19 +30,12 @@ jobs:
           set -o pipefail
           gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
 
-      - name: Extract errors
+      - name: Print errors
         if: always()
         run: |
-          grep -nE "^e: |error:|Unresolved reference|Type mismatch|None of the following|Expecting|Illegal|Argument type mismatch" build.log | head -60 > err.txt || true
-          echo "--- head of err.txt ---"
-          head -60 err.txt || true
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: err
-          path: err.txt
-          if-no-files-found: warn
+          echo "########## ERROR LINES ##########"
+          grep -nE "^e: |error:|Unresolved reference|Type mismatch|None of the following|Expecting|Illegal|Argument type mismatch" build.log | head -60
+          echo "########## END ##########"
 
       - uses: actions/upload-artifact@v4
         if: always()
