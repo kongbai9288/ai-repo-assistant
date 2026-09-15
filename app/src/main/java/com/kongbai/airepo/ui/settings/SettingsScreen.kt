@@ -1,5 +1,6 @@
 package com.kongbai.airepo.ui.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
